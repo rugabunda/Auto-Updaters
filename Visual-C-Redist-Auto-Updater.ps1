@@ -1,4 +1,3 @@
-netsh advfirewall firewall set rule name="Windows PowerShell (powershell.exe)" new enable=yes
 # Variables
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $tagFilePath = Join-Path -Path $scriptDir -ChildPath "latest_tag.txt"
@@ -32,8 +31,6 @@ foreach ($asset in $assets) {
         Write-Output "Downloading $requiredFileName..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $filePath
         Write-Output "$requiredFileName downloaded successfully."
-
-netsh advfirewall firewall set rule name="Windows PowerShell (powershell.exe)" new enable=no
 
         # Silent install command
         Start-Process -FilePath $filePath -ArgumentList "/ai /gm2" -NoNewWindow -Wait
