@@ -19,15 +19,13 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 *   Use the `/FORCEUPGRADE` switch during installation to prevent the process from being aborted if applications are found to be using codec files.
 *   After a fresh installation of any K-Lite variant, the script performs an immediate "second pass" check to see if any incremental updates can be applied to the just-installed version.
 *   Clean up downloaded installer files and temporary batch files after installation attempts.
-*   Temporarily enable a specific PowerShell firewall rule (`Windows PowerShell (powershell.exe)`) during network activity (fetching version info, downloading installers) and disable it afterwards.
 
 ## Prerequisites
 
 1.  **PowerShell Version:** 5.1 or higher.
-2.  **Administrator Privileges:** The script must be run as an Administrator to install software and modify firewall rules.
+2.  **Administrator Privileges:** The script must be run as an Administrator to install software.
 3.  **Internet Connection:** Required to check for updates and download installers.
-4.  **Firewall Rule (Potentially):** The script attempts to enable the built-in firewall rule named `Windows PowerShell (powershell.exe)` for outbound connections made by PowerShell. If this rule doesn't exist or your firewall is managed by third-party software, you might need to ensure PowerShell (`powershell.exe`) is allowed to make outgoing web connections.
-5.  **Unattended INI Files (Optional but Recommended for Full Customization):**
+4.  **Unattended INI Files (Optional but Recommended for Full Customization):**
     *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant.
     *   Name your INI files as follows and place them in the **same directory** as the `Update-KLite.ps1` script:
         *   `klcp_basic_unattended.ini`
@@ -57,18 +55,17 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 1.  **Initial Setup:**
     *   Determines script directory and paths for downloads and temporary files.
     *   Checks PowerShell version and administrator privileges.
-2.  **Firewall Rule:** Attempts to enable the `Windows PowerShell (powershell.exe)` firewall rule.
-3.  **Detect Installed K-Lite:**
+2.  **Detect Installed K-Lite:**
     *   Checks the registry for an existing K-Lite installation.
     *   If found, determines the installed version and variant (Basic, Standard, Full, Mega).
     *   If not found, sets a flag for a fresh install scenario.
-4.  **Variant Selection (for Fresh Installs):**
+3.  **Variant Selection (for Fresh Installs):**
     *   If K-Lite is not installed, prompts the user to select a variant from an ordered menu.
     *   If K-Lite is installed but the variant couldn't be determined from the registry, it defaults to checking/updating the "Full" variant.
-5.  **Fetch Latest Version Information:**
+4.  **Fetch Latest Version Information:**
     *   Fetches the latest version details for the target K-Lite variant installer from its specific page on `codecguide.com`.
     *   Fetches the latest universal incremental update details from `codecguide.com/klcp_update.htm`.
-6.  **Decision Making (Update or Install):**
+5.  **Decision Making (Update or Install):**
     *   **Fresh Install:** If K-Lite is not installed, it will proceed to download and install the chosen variant.
     *   **Update Existing:**
         *   It prioritizes the full installer for the detected/target variant if it's newer than the installed version.
@@ -77,7 +74,7 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
             *   If the "From" version is known and matches, it uses the incremental.
             *   If the "From" version is *unknown* but the "To" version is newer, it will proceed with the incremental update with a warning.
         *   If no suitable update is found, it reports that K-Lite is up-to-date.
-7.  **Download and Install:**
+6.  **Download and Install:**
     *   If an update/install is needed, the appropriate installer (`.exe`) is downloaded to a subfolder named `Klite_Downloads` (created in the script's directory).
     *   **For Basic, Standard, Full, or Mega variants:**
         *   Checks for a corresponding `klcp_[variant]_unattended.ini` file in the script's directory.
@@ -85,22 +82,20 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
         *   If the INI does NOT exist: A warning is issued, and the installer is executed directly with generic silent switches (no INI customization).
     *   **For Incremental updates:** The installer is executed directly with generic silent switches (no INI, no batch file).
     *   All installations use `/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /FORCEUPGRADE`.
-8.  **Post-Fresh-Install Incremental Check:**
+7.  **Post-Fresh-Install Incremental Check:**
     *   If a fresh installation of a K-Lite variant was just performed successfully, the script immediately re-checks if any incremental updates can be applied to this newly installed version.
     *   If an applicable incremental update is found, it's downloaded and installed.
-9.  **Cleanup:**
+8.  **Cleanup:**
     *   After an installation attempt, the downloaded installer `.exe` file is deleted.
     *   If a temporary batch file and copied INI were used, they are also deleted from the download subfolder.
     *   The `Klite_Downloads` folder itself is kept.
-10. **Firewall Rule:** Attempts to disable the `Windows PowerShell (powershell.exe)` firewall rule.
-11. **Finish:** Reports script completion status.
+9.  **Finish:** Reports script completion status.
 
 ## Troubleshooting
 
 *   **"Must run as Administrator":** Ensure you are running the script with administrator privileges.
-*   **Firewall Issues / "Failed to fetch page":**
+*   **"Failed to fetch page":**
     *   Check your internet connection.
-    *   Ensure `powershell.exe` can make outgoing connections through your firewall. The script tries to enable a default Windows Firewall rule, but this might not be sufficient for all environments or third-party firewalls.
 *   **Version Parsing Warnings/Errors:** The K-Lite website structure can change. If the script consistently fails to parse version information (especially the "From" version for incremental updates), the regular expressions within the script may need updating.
 *   **Installation Fails (Non-zero Exit Code):**
     *   The exit code from the K-Lite installer will be displayed. Some non-zero codes might indicate a reboot is required.
@@ -111,7 +106,3 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 ## Disclaimer
 
 This script interacts with third-party websites and software. Website structures can change, potentially breaking the script's ability to fetch information. Always use such automation tools responsibly and understand what they are doing. The authors of K-Lite Codec Pack are not affiliated with this script.
-
----
-
-This README should provide a good overview and usage instructions for your script.
