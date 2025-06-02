@@ -11,39 +11,6 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 *   Prioritize updates:
     1.  A full installer for your specific variant if it's newer.
     2.  An incremental update if it's applicable and newer.
-    3.  To improve your Update-KLite.md (or README), I recommend you guide users to follow the official unattended installation method for the K-Lite Codec Pack, as described by the developers. This is the safest and most reliable way to automate installation, and it allows for full customization.
-
-Here’s how you can update your documentation:
-
----
-
-### Recommended: Official Unattended Installation Guide
-
-For automated or silent installations of K-Lite Codec Pack, it’s strongly recommended to follow the official unattended installation instructions provided by the developers:  
-https://www.codecguide.com/silentinstall.htm
-
-#### Quick Steps for Unattended Installation
-
-1. Download the desired K-Lite Codec Pack installer.
-2. Run the following command in your terminal or script, replacing INSTALLERFILENAME with the actual installer’s filename:
-
-   ```
-   INSTALLERFILENAME /unattended
-   ```
-
-3. The Unattended Wizard will launch. Follow the on-screen instructions to select your preferred settings. This allows you to customize the installation while keeping it automated.
-
-> Quoting the official site:  
-> "Creating an unattended installation (also known as a silent installation) is very easy for the K-Lite Codec Pack. It is even possible to customize the installation settings.  
-> Perform the following command line call to launch the 'Unattended Wizard':  
-> INSTALLERFILENAME /unattended  
-> Then just follow the instructions and select the desired settings. It's very quick and easy."
-
-By following this approach, you ensure that your automated K-Lite installations are both reliable and tailored to your needs.
-
----
-
-Let me know if you'd like a ready-to-paste markdown snippet or further details!
 *   Perform unattended (silent) installations:
     *   For **Basic, Standard, Full, and Mega** variants:
         *   If a corresponding `klcp_[variant]_unattended.ini` file (e.g., `klcp_full_unattended.ini`) is present in the script's directory, it will be used for a fully customized silent installation via a temporary batch file.
@@ -59,13 +26,14 @@ Let me know if you'd like a ready-to-paste markdown snippet or further details!
 2.  **Administrator Privileges:** The script must be run as an Administrator to install software.
 3.  **Internet Connection:** Required to check for updates and download installers.
 4.  **Unattended INI Files (Optional but Recommended for Full Customization):**
-    *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant.
+    *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant. For automated or silent installations of K-Lite Codec Pack, it’s strongly recommended to follow the official unattended installation instructions provided by the developers:  
+https://www.codecguide.com/silentinstall.htm
     *   Name your INI files as follows and place them in the **same directory** as the `Update-KLite.ps1` script:
         *   `klcp_basic_unattended.ini`
         *   `klcp_standard_unattended.ini`
         *   `klcp_full_unattended.ini`
         *   `klcp_mega_unattended.ini`
-    *   You can generate these INI files by running the K-Lite installer once with the `/SAVEINF="your_filename.ini"` command-line switch, going through the setup options you want, and then copying/renaming the saved INI.
+    *   You can generate these INI files by running the K-Lite installer once with the `INSTALLERFILENAME /unattended` command-line switch, going through the setup options you want, and then copying/renaming the saved INI.
     *   If an INI file for a specific variant (Basic, Standard, Mega, or even Full if its INI is missing) is not found, the script will attempt a generic silent installation for that variant, which might not include all your preferred component selections or settings.
 
 ## How to Use
