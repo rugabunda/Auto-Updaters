@@ -26,8 +26,7 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 2.  **Administrator Privileges:** The script must be run as an Administrator to install software.
 3.  **Internet Connection:** Required to check for updates and download installers.
 4.  **Unattended INI Files (Optional but Recommended for Full Customization):**
-    *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant. For automated or silent installations of K-Lite Codec Pack, it’s strongly recommended to follow the official unattended installation instructions provided by the developers:  
-https://www.codecguide.com/silentinstall.htm
+    *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant. For automated or silent installations of K-Lite Codec Pack, it’s strongly recommended to follow the official unattended installation instructions provided by the developers: https://www.codecguide.com/silentinstall.htm
     *   Name your INI files as follows and place them in the **same directory** as the `Update-KLite.ps1` script:
         *   `klcp_basic_unattended.ini`
         *   `klcp_standard_unattended.ini`
