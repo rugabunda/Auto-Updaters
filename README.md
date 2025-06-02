@@ -55,7 +55,19 @@ To ensure updates are applied regularly, it’s recommended to add the updater s
 6. Adjust **Conditions** and **Settings** as needed.
 7. Click **OK** to save.
 
-> **Tip:** Ensure the script file path is correct and accessible by the user account running the task.
+> #### Create a Scheduled Task Using CMD
+
+You can also create a scheduled task that runs every 12 hours with system privileges from the command line (customize the script path and task name as needed):
+
+```cmd
+SCHTASKS /Create /SC HOURLY /MO 12 /TN "Auto-Updater-Name" /TR "powershell.exe -ExecutionPolicy Bypass -File \"C:\Path\To\YourScript.ps1\"" /RU "SYSTEM"
+```
+
+- `/SC HOURLY /MO 12` — Schedule to run every 12 hours  
+- `/TN "Auto-Updater-Name"` — The name of your task  
+- `/TR ...` — Command to run (your PowerShell script)  
+- `/RU "SYSTEM"` — Runs the task with system privileges
+
 
 ## Requirements
 
