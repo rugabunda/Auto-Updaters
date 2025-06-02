@@ -32,7 +32,7 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
         *   `klcp_standard_unattended.ini`
         *   `klcp_full_unattended.ini`
         *   `klcp_mega_unattended.ini`
-    *   You can generate these INI files by running the *OFFICIAL* K-Lite installer once with the `INSTALLERFILENAME /unattended` command-line switch, going through the setup options you want, and then copying/renaming the saved INI.
+    *   You can generate these INI files by running the *OFFICIAL* K-Lite installer once with the `INSTALLERFILENAME /unattended` command-line switch, going through the setup options you want, and then copying the saved INI.
     *   If an INI file for a specific variant (Basic, Standard, Mega, or even Full if its INI is missing) is not found, the script will attempt a generic silent installation for that variant, which might not include all your preferred component selections or settings.
 
 ## How to Use
