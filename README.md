@@ -1,5 +1,3 @@
-Here’s a README for your Windows Auto-Updater Scripts repository, including recommendations for adding them as scheduled tasks:
-
 ---
 
 # Auto-Updaters
