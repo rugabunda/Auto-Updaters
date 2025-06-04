@@ -18,10 +18,6 @@
     Downloads and temporary files are cleaned up. A firewall rule is toggled.
 
 .NOTES
-    Author: AI Assistant
-    Version: 1.9.3
-    Last Modified: 2024-07-25
-
     Changelog:
     1.9.3 - Corrected the fresh install variant selection menu to display options in a
             fixed order (Basic, Standard, Full, Mega) using an array of PSCustomObjects.
