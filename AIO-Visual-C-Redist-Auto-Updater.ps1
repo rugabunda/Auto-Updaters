@@ -32,6 +32,9 @@ foreach ($asset in $assets) {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $filePath
         Write-Output "$requiredFileName downloaded successfully."
 
+        # Print output when installing the redist
+        Write-Output "Installing $requiredFileName..."
+
         # Silent install command
         Start-Process -FilePath $filePath -ArgumentList "/ai /gm2" -NoNewWindow -Wait
 
