@@ -27,7 +27,7 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 3.  **Internet Connection:** Required to check for updates and download installers.
 4.  **Unattended INI Files (Optional but Recommended for Full Customization):**
     *   For a fully customized silent installation of a specific K-Lite variant (Basic, Standard, Full, or Mega), you need to create an unattended INI file for that variant. For automated or silent installations of K-Lite Codec Pack, it’s strongly recommended to follow the official unattended installation instructions provided by the developers: https://www.codecguide.com/silentinstall.htm
-    *   Name your INI files as follows and place them in the **same directory** as the `Update-KLite.ps1` script:
+    *   Name your INI files as follows and place them in the **same directory** as the `Auto-Update-KLite.ps1` script:
         *   `klcp_basic_unattended.ini`
         *   `klcp_standard_unattended.ini`
         *   `klcp_full_unattended.ini`
@@ -37,15 +37,15 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
 
 ## How to Use
 
-1.  **Download/Save the Script:** Save the PowerShell script as `Update-KLite.ps1`.
+1.  **Download/Save the Script:** Save the PowerShell script as `Auto-Update-KLite.ps1`.
 2.  **Prepare INI Files (Optional):**
     *   If you want customized silent installations for specific K-Lite variants, create your `klcp_[variant]_unattended.ini` files as described in "Prerequisites."
-    *   Place these INI files in the **same directory** as `Update-KLite.ps1`.
+    *   Place these INI files in the **same directory** as `Auto-Update-KLite.ps1`.
 3.  **Run the Script:**
-    *   Right-click on `Update-KLite.ps1` and select "Run with PowerShell".
+    *   Right-click on `Auto-Update-KLite.ps1` and select "Run with PowerShell".
     *   Alternatively, open PowerShell as an Administrator, navigate to the directory where you saved the script, and run it:
         ```powershell
-        .\Update-KLite.ps1
+        .\Auto-Update-KLite.ps1
         ```
 4.  **Follow Prompts (If Any):**
     *   If K-Lite is not installed, you will be prompted to choose which variant (Basic, Standard, Full, Mega) you wish to install. The options will be displayed in an ordered list.
@@ -101,7 +101,7 @@ This PowerShell script automates the process of keeping your K-Lite Codec Pack i
     *   The exit code from the K-Lite installer will be displayed. Some non-zero codes might indicate a reboot is required.
     *   If a temporary batch file was used (for Basic/Standard/Full/Mega with an INI), check the console output for any messages from the batch script, including a directory listing which can help verify if the installer was present.
     *   Ensure your unattended INI file (if used) is correctly configured.
-*   **Path Issues:** The script is designed to create a `Klite_Downloads` subfolder within the directory where `Update-KLite.ps1` is located. If downloads go elsewhere, check the `$ScriptDir` initialization at the top of the script.
+*   **Path Issues:** The script is designed to create a `Klite_Downloads` subfolder within the directory where `Auto-Update-KLite.ps1` is located. If downloads go elsewhere, check the `$ScriptDir` initialization at the top of the script.
 
 ## Disclaimer
 
