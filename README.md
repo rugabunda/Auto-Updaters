@@ -4,9 +4,6 @@
 
 ## Overview
 
-This repository contains PowerShell scripts designed to automate the process of updating software and system components on Windows machines. These scripts help keep your system and applications up-to-date without manual intervention.
-
-
 **Auto Update Scripts currently in this repository:**
 - Visual C++ Redistributables (All-In-One)
 - K-Lite Codec Pack (Basic, Standard, Full, Mega)
