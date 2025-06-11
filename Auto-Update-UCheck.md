@@ -28,7 +28,7 @@ The script also includes a powerful scheduling feature to create a "set and forg
 
 ## Setup
 
-1.  **Save the Script**: Save the script file as `Update-UCheck.ps1` in a stable location on your computer (e.g., `C:\Scripts`).
+1.  **Save the Script**: Save the script file as `Auto-Update-UCheck.ps1` in a stable location on your computer (e.g., `C:\Scripts`).
 2.  **Set Execution Policy (One-Time Setup)**: If you haven't run PowerShell scripts before, you may need to adjust the execution policy. Open PowerShell **as an Administrator** and run the following command to allow scripts to run:
     ```powershell
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force
@@ -37,20 +37,20 @@ The script also includes a powerful scheduling feature to create a "set and forg
 
 ## Usage
 
-Open a PowerShell terminal and navigate to the directory where you saved `Update-UCheck.ps1`.
+Open a PowerShell terminal and navigate to the directory where you saved `Auto-Update-UCheck.ps1`.
 
 ### Running a One-Time Check
 
 To perform a single, immediate check for UCheck updates, simply run the script.
 
 ```powershell
-.\Update-UCheck.ps1
+.\Auto-Update-UCheck.ps1
 ```
 
 For more detailed output on what the script is doing, use the `-Verbose` flag.
 
 ```powershell
-.\Update-UCheck.ps1 -Verbose
+.\Auto-Update-UCheck.ps1 -Verbose
 ```
 
 ### Automating Updates with a Scheduled Task
@@ -61,18 +61,18 @@ To create a scheduled task that runs this script automatically, you **must run P
 
 ```powershell
 # You must be running as Administrator for this command
-.\Update-UCheck.ps1 -Schedule
+.\Auto-Update-UCheck.ps1 -Schedule
 ```
 *You can also use the alias `-s`.*
 ```powershell
-.\Update-UCheck.ps1 -s
+.\Auto-Update-UCheck.ps1 -s
 ```
 
 **Option 2: Create a task with a custom name**
 
 ```powershell
 # You must be running as Administrator for this command
-.\Update-UCheck.ps1 -Schedule -Name "My Custom UCheck Task"
+.\Auto-Update-UCheck.ps1 -Schedule -Name "My Custom UCheck Task"
 ```
 
 After the task is created, the script will confirm its creation and exit. The task will now run in the background according to its schedule.
@@ -91,7 +91,7 @@ After the task is created, the script will confirm its creation and exit. The ta
     -   Finally, it cleans up the downloaded installer file.
 4.  **Scheduling (`-Schedule` flag)**:
     -   When you use the `-Schedule` flag, the script creates a new task in the Windows **Task Scheduler**.
-    -   **Action**: The task is configured to run `powershell.exe` with arguments pointing it to execute this very `Update-UCheck.ps1` script file.
+    -   **Action**: The task is configured to run `powershell.exe` with arguments pointing it to execute this very `Auto-Update-UCheck.ps1` script file.
     -   **Trigger**: It's set to run every 6 hours with a random delay of up to 2 hours.
     -   **Principal**: It runs as the `NT AUTHORITY\SYSTEM` account, giving it high-level permissions to install software without needing a user to be logged in.
 
