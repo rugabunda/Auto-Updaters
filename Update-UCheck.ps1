@@ -32,8 +32,6 @@
     Creates a scheduled task named 'UCheck-AutoUpdater' to run the update check.
 
 .NOTES
-    Author: Your Name/Organization
-    Date:   2024-10-27
     Requires: PowerShell 5.1 or later running with Administrator privileges.
 #>
 [CmdletBinding()]
