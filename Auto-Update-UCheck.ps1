@@ -24,11 +24,11 @@
     a default name 'UCheck-AutoUpdater' will be used.
 
 .EXAMPLE
-    .\Update-UCheck.ps1
+    .\Auto-Update-UCheck.ps1
     Performs a one-time check for UCheck updates. Requires running as Administrator.
 
 .EXAMPLE
-    .\Update-UCheck.ps1 -Schedule
+    .\Auto-Update-UCheck.ps1 -Schedule
     Creates a scheduled task named 'UCheck-AutoUpdater' to run the update check.
 
 .NOTES
