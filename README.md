@@ -7,7 +7,8 @@
 **Auto Update Scripts currently in this repository:**
 - Visual C++ Redistributables AIO (All-In-One)
 - K-Lite Codec Pack (Basic, Standard, Full, Mega)
-- Adlice UCheck 
+- Adlice UCheck
+- Windows SkuSiPolicy
 
 ## Features
 
