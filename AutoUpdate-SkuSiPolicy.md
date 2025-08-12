@@ -28,6 +28,12 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 .\AutoUpdate-SkuSiPolicy.ps1
 ```
 
+## Create scheduled task (one-liner)
+Triggers on Windows Update install (EventID 19). Update path to and run in an elevated Command Prompt:
+
+```cmd
+schtasks /Create /TN "\Auto-Update SkuSiPolicy" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""C:\path\to\SkuSiPolicy-Updater.ps1""" /SC ONLOGON /RL HIGHEST /F /IT
+```
 Notes:
 - Runs as the current user, highest privileges, interactive. To run headless, replace /IT with /RU SYSTEM (popup won’t be visible).
 - If CMD has delayed expansion enabled, the “!” in the task path may need escaping; or run the command from PowerShell.
