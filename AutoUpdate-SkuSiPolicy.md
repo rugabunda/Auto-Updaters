@@ -29,7 +29,7 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 ```
 
 ## Create scheduled task (one-liner)
-Triggers on Windows Update install (EventID 19). Update path to and run in an elevated Command Prompt:
+Triggers on Logon
 
 ```cmd
 schtasks /Create /TN "\Auto-Update SkuSiPolicy" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""C:\path\to\SkuSiPolicy-Updater.ps1""" /SC ONLOGON /RL HIGHEST /F /IT
