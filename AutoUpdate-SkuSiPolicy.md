@@ -28,14 +28,14 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 .\AutoUpdate-SkuSiPolicy.ps1
 ```
 
-## Create scheduled task (one-liner)
-Triggers on system startup
+## Create scheduled task (one-liner)...
+Triggers on system startup, update \path\to\
 
-```cmd, Update \path\to\.
+```cmd
 schtasks /Create /TN "AutoUpdate-SkuSiPolicy" /RU SYSTEM /RL HIGHEST /SC ONSTART /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\path\to\AutoUpdate-SkuSiPolicy.ps1\"" /F
 ```
 Notes:
-- Runs as the current user, highest privileges, interactive. To run headless, replace /IT with /RU SYSTEM (popup won’t be visible).
+- Runs as the current user, highest privileges, interactive. Replace /RU SYSTEM with /IT (for admin + traditional popup).
 - If CMD has delayed expansion enabled, the “!” in the task path may need escaping; or run the command from PowerShell.
 
 ⚠️ Writes to the EFI System Partition—use with care. A reboot is recommended after a successful copy.
