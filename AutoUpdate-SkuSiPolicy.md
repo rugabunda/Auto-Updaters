@@ -8,7 +8,7 @@ Tested: Windows 11, PowerShell 5.1.
 - Source → C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
-- Popup + coloured console when run interactively as admin. Popup when run as system, at system startup, or upon (any) user login.
+- Popup + coloured console when run interactively as admin on login. Popup when run as system, at system startup, or upon (any) user login.
 - Verifies copy, then suggests reboot
 
 ## Configurable top-of-script variables
