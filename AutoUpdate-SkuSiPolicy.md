@@ -8,7 +8,7 @@ Tested: Windows 11, PowerShell 5.1.
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
 - Popup + coloured console when run interactively as admin on login. Popup when run as system/w system startup and or upon (any) user login.
-- For noninteractive mode schtask, select 'Run when user is logged on or not, and do not store passowrd.'
+- For noninteractive schtask, select 'Run when user is logged on or not, and do not store passowrd.'
 - Verifies copy, then suggests reboot
 
 ## Configurable top-of-script variables
