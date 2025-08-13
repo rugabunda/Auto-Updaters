@@ -28,14 +28,14 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 ```
 
 ## Create scheduled task (one-liner)...
-CMD: System user /w notification. Update \path\to\.
+System user /w notification. Update \path\to\. CMD:
 
 ```cmd
 schtasks /Create /TN "AutoUpdate-SkuSiPolicy" /RU SYSTEM /RL HIGHEST /SC ONSTART /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\path\to\AutoUpdate-SkuSiPolicy.ps1\"" /F
 ```
 or:
 
-Powershell: Run Silently as admin. Update \path\to\.
+Run Silently as admin. Update \path\to\. Powershell:
 
 ```ps1
 Register-ScheduledTask -TaskName 'Auto-Update SkuSiPolicy' -Action (New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\path\to\SkuSiPolicy-Updater.ps1"') -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Highest) -Force
