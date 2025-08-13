@@ -7,7 +7,8 @@ Tested: Windows 11, PowerShell 5.1.
 - Source → C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
-- Popup + coloured console when run interactively as admin on login. Popup when run as system + system startup or + upon (any) user login.
+- Popup + coloured console when run interactively as admin on login. Popup when run as system/w system startup and or upon (any) user login.
+- For noninteractive mode schtask, select 'Run when user is logged on or not, and do not store passowrd.'
 - Verifies copy, then suggests reboot
 
 ## Configurable top-of-script variables
@@ -35,7 +36,7 @@ schtasks /Create /TN "AutoUpdate-SkuSiPolicy" /RU SYSTEM /RL HIGHEST /SC ONSTART
 ```
 or:
 
-Powershell: Run Silent as admin. Update \path\to\.
+Powershell: Run Silently as admin. Update \path\to\.
 
 ```ps1
 Register-ScheduledTask -TaskName 'Auto-Update SkuSiPolicy' -Action (New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\path\to\SkuSiPolicy-Updater.ps1"') -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Highest) -Force
