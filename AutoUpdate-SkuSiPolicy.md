@@ -28,7 +28,7 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 ```
 
 ## Create scheduled task (one-liner)...
-Triggers on system startup. Update \path\to\.
+Triggers as early as system startup. Update \path\to\.
 
 ```cmd
 schtasks /Create /TN "AutoUpdate-SkuSiPolicy" /RU SYSTEM /RL HIGHEST /SC ONSTART /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\path\to\AutoUpdate-SkuSiPolicy.ps1\"" /F
