@@ -8,7 +8,6 @@ Tested: Windows 11, PowerShell 5.1.
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
 - Popup + coloured console when run interactively as admin on login. Popup when run as system/w system startup and or upon (any) user login.
-- For noninteractive schtask, select 'Run when user is logged on or not, and do not store passowrd.'
 - Verifies copy, then suggests reboot
 
 ## Configurable top-of-script variables
@@ -43,7 +42,7 @@ Register-ScheduledTask -TaskName 'Auto-Update SkuSiPolicy' -Action (New-Schedule
 ```
 
 Notes:
-- Runs as the current user, highest privileges, interactive. Replace /RU SYSTEM with /IT (for admin + traditional popup).
+- For noninteractive schtask, select 'Run when user is logged on or not, and do not store passowrd.'
 - If CMD has delayed expansion enabled, the “!” in the task path may need escaping; or run the command from PowerShell.
 
 ⚠️ Writes to the EFI System Partition—use with care. A reboot is recommended after a successful copy.
