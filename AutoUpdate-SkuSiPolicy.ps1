@@ -3,9 +3,9 @@
   -----------------------
   Mirrors C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
   to     EFI\Microsoft\Boot\SkuSiPolicy.p7b
-  – but only when contents changed (MD5 comparison).
+  – if none found or on file change.
 
-  • A MessageBox appears every time the file really gets copied.
+  • A MessageBox appears every time SkuSiPolicy.p7b is updated (when interactive).
   • If running as SYSTEM, creates a self-deleting scheduled task for interactive notification.
   • Console output is colourful when run interactively; minimal logging when quiet.
   • Only logs significant events (changes, copies, errors) to reduce log verbosity.
@@ -14,7 +14,7 @@
 #>
 
 # Needed for [System.Windows.Forms.MessageBox]
-Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------ CONFIG ------
 $SystemFile = 'C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b'
@@ -147,15 +147,24 @@ function Show-UpdateNotification {
             Write-Console "Failed to create interactive notification, falling back to log entry" -Colour Yellow
             Write-Log "NOTIFICATION: $Message" -Colour Yellow
         }
+    } elseif ($IsInteractive) {
+        # Running as regular user in interactive session - show MessageBox directly
+        try {
+            Write-Console "Showing notification dialog..." -Colour Gray
+            [System.Windows.Forms.MessageBox]::Show(
+                $Message,
+                'SkuSiPolicy Update - Restart Recommended',
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            ) | Out-Null
+        }
+        catch {
+            Write-Console "Could not show interactive dialog: $_" -Colour Yellow
+            Write-Log "NOTIFICATION (could not display): $Message" -Colour Yellow
+        }
     } else {
-        # Running as regular user - show MessageBox directly (already has no timeout)
-        Write-Console "Showing notification dialog..." -Colour Gray
-        [System.Windows.Forms.MessageBox]::Show(
-            $Message,
-            'SkuSiPolicy Update - Restart Recommended',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        ) | Out-Null
+        # Non-interactive session (like S4U task)
+        Write-Log "NOTIFICATION (non-interactive session): $Message" -Colour Yellow
     }
 }
 # -------------------------------------------------------------------------
@@ -166,6 +175,11 @@ Write-Console "=== SkuSiPolicy Updater Started ===" -Colour Magenta
 if (Test-IsSystemAccount) {
     Write-Console "Running as SYSTEM account" -Colour Gray
     Write-Log "Running as SYSTEM account" -Colour Gray
+}
+
+# Log if non-interactive
+if (-not $IsInteractive) {
+    Write-Log "Running in non-interactive mode" -Colour Gray
 }
 
 # Make sure the log folder exists
@@ -286,7 +300,7 @@ try {
         Write-Console "[REBOOT RECOMMENDED] Please restart your computer for changes to take effect" -Colour Yellow
         Write-Log "REBOOT RECOMMENDED - Changes require restart to take effect" -Colour Yellow
         
-        # Show notification (handles both SYSTEM and user contexts)
+        # Show notification (handles SYSTEM, interactive, and non-interactive contexts)
         Show-UpdateNotification
         
     } else {
