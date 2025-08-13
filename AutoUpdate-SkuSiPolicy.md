@@ -1,7 +1,6 @@
 # AutoUpdate-SkuSiPolicy.ps1
 
-Mirrors the Windows SkuSiPolicy.p7b to the EFI System Partition only when the file changed (MD5 check). Update takes effect after reboot.
-
+Mirrors the Windows SkuSiPolicy.p7b to the EFI System Partition if not already or upon update, (MD5 check). Update takes effect after reboot.
 Tested: Windows 11, PowerShell 5.1.
 
 ## Quick Facts
