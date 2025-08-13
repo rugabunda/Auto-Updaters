@@ -8,7 +8,7 @@ Tested: Windows 11, PowerShell 5.1.
 - Source → C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
-- Popup + coloured console when run interactively
+- Popup + coloured console when run interactively as admin. Popup when run as system, at system startup, or upon (any) user login.
 - Verifies copy, then suggests reboot
 
 ## Configurable top-of-script variables
@@ -31,8 +31,8 @@ Set-ExecutionPolicy -Scope Process Bypass   # if needed
 ## Create scheduled task (one-liner)
 Triggers on Logon
 
-```cmd
-schtasks /Create /TN "\Auto-Update SkuSiPolicy" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""C:\path\to\SkuSiPolicy-Updater.ps1""" /SC ONLOGON /RL HIGHEST /F /IT
+```cmd, Update \path\to\.
+schtasks /Create /TN "AutoUpdate-SkuSiPolicy" /RU SYSTEM /RL HIGHEST /SC ONSTART /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\path\to\AutoUpdate-SkuSiPolicy.ps1\"" /F
 ```
 Notes:
 - Runs as the current user, highest privileges, interactive. To run headless, replace /IT with /RU SYSTEM (popup won’t be visible).
