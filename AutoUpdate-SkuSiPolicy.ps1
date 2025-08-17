@@ -295,6 +295,28 @@ try {
         Write-Console "[VERIFIED] Copy successful, hashes match" -Colour Green
         Write-Log "VERIFIED - Copy successful, hash verification passed" -Colour Green
         
+        # Set registry to provision the update on reboot
+        try {
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot" -Name "AvailableUpdates" -Value 0x20
+            Write-Console "[REGISTRY] Set AvailableUpdates flag for provisioning on reboot" -Colour Green
+            Write-Log "REGISTRY - Set AvailableUpdates=0x20 for provisioning on reboot" -Colour Green
+            
+            # Run Secure Boot Update task to register and apply the update
+            try {
+                Start-ScheduledTask -TaskName "\Microsoft\Windows\PI\Secure-Boot-Update"
+                Write-Console "[TASK] Started Secure-Boot-Update task to register updates" -Colour Green
+                Write-Log "TASK - Started \Microsoft\Windows\PI\Secure-Boot-Update to register Secure Boot updates" -Colour Green
+            }
+            catch {
+                Write-Console "[WARNING] Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
+                Write-Log "WARNING - Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
+            }
+        }
+        catch {
+            Write-Console "[WARNING] Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
+            Write-Log "WARNING - Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
+        }
+        
         # Suggest reboot
         Write-Console "" # blank line
         Write-Console "[REBOOT RECOMMENDED] Please restart your computer for changes to take effect" -Colour Yellow
