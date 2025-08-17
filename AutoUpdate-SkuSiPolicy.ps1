@@ -20,8 +20,8 @@ Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 $SystemFile = 'C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b'
 $StateFile  = 'C:\Log\SkuSiPolicy.last'     # will contain the last MD5 hash
 $LogFile    = 'C:\Log\Update.log'
-$EfiLetter  = 'Z'                           # choose a free drive letter
-$EfiFile    = "${EfiLetter}:\EFI\Microsoft\Boot\SkuSiPolicy.p7b"
+# Drive letters to try when mounting the EFI System Partition (ESP) if not already mounted
+$EfiLetters = @('S','T','U','V','W','X','Y','Z')
 # -------------------------------------------------------------------------
 
 # ---------- helpers -------------------------------------------------------
@@ -33,14 +33,10 @@ function Write-Log {
         [ConsoleColor] $Colour = 'Gray',
         [switch]       $LogOnly = $false
     )
-    
+    # Dates only in log file; do not echo timestamps to console
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $line  = "${stamp}: $Text"
     Add-Content -Path $LogFile -Value $line
-    
-    if ($IsInteractive -and -not $LogOnly) { 
-        Write-Host $line -ForegroundColor $Colour 
-    }
 }
 
 function Write-Console {
@@ -167,9 +163,43 @@ function Show-UpdateNotification {
         Write-Log "NOTIFICATION (non-interactive session): $Message" -Colour Yellow
     }
 }
+
+function Find-Or-MountEfi {
+    param([string[]]$Letters = $EfiLetters)
+
+    # 1) Already mounted? Use it
+    $existing = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+        Where-Object {
+            try { Test-Path (Join-Path $_.Root 'EFI\Microsoft\Boot') } catch { $false }
+        } |
+        Select-Object -First 1
+
+    if ($existing) {
+        return [pscustomobject]@{ Letter = $existing.Name; MountedByUs = $false }
+    }
+
+    # 2) Not mounted: try to mount to the first free letter in S..Z
+    foreach ($l in $Letters) {
+        if (-not (Get-PSDrive -Name $l -ErrorAction SilentlyContinue)) {
+            try { mountvol "$($l):" /S | Out-Null } catch {}
+
+            if (Test-Path "$($l):\EFI\Microsoft\Boot") {
+                return [pscustomobject]@{ Letter = $l; MountedByUs = $true }
+            }
+
+            # Clean up if the mount didn't result in the ESP
+            try { mountvol "$($l):" /D | Out-Null } catch {}
+        }
+    }
+
+    return $null
+}
 # -------------------------------------------------------------------------
 
 Write-Console "=== SkuSiPolicy Updater Started ===" -Colour Magenta
+
+# Make sure the log folder exists as early as possible
+$null = New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force -ErrorAction SilentlyContinue
 
 # Log if running as SYSTEM
 if (Test-IsSystemAccount) {
@@ -181,9 +211,6 @@ if (Test-IsSystemAccount) {
 if (-not $IsInteractive) {
     Write-Log "Running in non-interactive mode" -Colour Gray
 }
-
-# Make sure the log folder exists
-$null = New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------- validate source -----
 if (-not (Test-Path -Path $SystemFile)) {
@@ -200,17 +227,22 @@ $needCopy = $true
 # ------------------------------------ first run (no .last) ----------------
 if (-not (Test-Path -Path $StateFile)) {
 
-    Write-Console "First run detected - no state file found" -Colour Yellow
     Write-Log "FIRST RUN - No state file found, checking EFI partition" -Colour Yellow
 
-    # Mount EFI if necessary
-    $mounted = $false
-    if (-not (Get-PSDrive -Name $EfiLetter -ErrorAction SilentlyContinue)) {
-        Write-Console "Mounting EFI System Partition to ${EfiLetter}:" -Colour Gray
-        mountvol "${EfiLetter}:" /S | Out-Null
-        $mounted = $true
+    $esp = Find-Or-MountEfi
+    if (-not $esp) {
+        Write-Console "[ERROR] Could not locate or mount the EFI System Partition" -Colour Red
+        Write-Log "ERROR - Could not locate or mount the EFI System Partition" -Colour Red
+        exit 2
+    }
+
+    $EfiLetter = $esp.Letter
+    $EfiFile   = "${EfiLetter}:\EFI\Microsoft\Boot\SkuSiPolicy.p7b"
+
+    if ($esp.MountedByUs) {
+        Write-Log "Mounted EFI System Partition at ${EfiLetter}:" -Colour Gray
     } else {
-        Write-Console "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
+        Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
     }
 
     if (Test-Path -Path $EfiFile) {
@@ -228,12 +260,12 @@ if (-not (Test-Path -Path $StateFile)) {
             Write-Log "FIRST RUN - Files differ, copy required" -Colour Yellow
         }
     } else {
-        Write-Console "EFI file does not exist - will be created: $EfiFile" -Colour Yellow
+        Write-Console "FIRST RUN DETECTED - EFI file missing, will create: $EfiFile" -Colour Yellow
         Write-Log "FIRST RUN - EFI file missing, will create: $EfiFile" -Colour Yellow
     }
 
-    if ($mounted) { 
-        Write-Console "Unmounting EFI System Partition" -Colour Gray
+    if ($esp.MountedByUs) { 
+        Write-Log "Unmounting EFI System Partition" -Colour Gray
         mountvol "${EfiLetter}:" /D | Out-Null 
     }
 }
@@ -266,14 +298,23 @@ if (Test-Path -Path $StateFile) {
 Write-Console "Preparing to copy updated file to EFI partition..." -Colour Yellow
 Write-Log "COPY OPERATION - Starting file copy to EFI partition" -Colour Cyan
 
-$mounted = $false
-if (-not (Get-PSDrive -Name $EfiLetter -ErrorAction SilentlyContinue)) {
-    Write-Console "Mounting EFI System Partition to ${EfiLetter}:" -Colour Gray
-    mountvol "${EfiLetter}:" /S | Out-Null
-    $mounted = $true
-} else {
-    Write-Console "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
+$esp = Find-Or-MountEfi
+if (-not $esp) {
+    Write-Console "[ERROR] Could not locate or mount the EFI System Partition" -Colour Red
+    Write-Log "ERROR - Could not locate or mount the EFI System Partition" -Colour Red
+    exit 2
 }
+
+$EfiLetter = $esp.Letter
+$EfiFile   = "${EfiLetter}:\EFI\Microsoft\Boot\SkuSiPolicy.p7b"
+
+if ($esp.MountedByUs) {
+    Write-Log "Mounted EFI System Partition at ${EfiLetter}:" -Colour Gray
+} else {
+    Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
+}
+
+$copySuccess = $false
 
 try {
     if ($IsInteractive) {
@@ -283,6 +324,12 @@ try {
         Write-Host "$EfiFile" -ForegroundColor White
     }
     
+    # Ensure target directory exists
+    $targetDir = Split-Path -Path $EfiFile -Parent
+    if (-not (Test-Path $targetDir)) {
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    }
+
     Copy-Item -Path $SystemFile -Destination $EfiFile -Force
     Write-Console "[SUCCESS] File successfully copied to EFI partition!" -Colour Green
     Write-Log "SUCCESS - File copied: $SystemFile -> $EfiFile" -Colour Green
@@ -294,6 +341,7 @@ try {
     if ($newEfiHash -eq $currHash) {
         Write-Console "[VERIFIED] Copy successful, hashes match" -Colour Green
         Write-Log "VERIFIED - Copy successful, hash verification passed" -Colour Green
+        $copySuccess = $true
         
         # Set registry to provision the update on reboot
         try {
@@ -335,14 +383,21 @@ catch {
     Write-Log "ERROR - Copy operation failed: $($_.Exception.Message)" -Colour Red
 }
 finally {
-    if ($mounted) { 
-        Write-Console "Unmounting EFI System Partition" -Colour Gray
+    if ($esp.MountedByUs) { 
+        Write-Log "Unmounting EFI System Partition" -Colour Gray
         mountvol "${EfiLetter}:" /D | Out-Null 
     }
 }
 
 # ------------------------------------- save new state ---------------------
-$currHash | Set-Content -Path $StateFile
-Write-Console "Updated state file with new hash" -Colour Gray
-Write-Log "STATE UPDATED - New hash saved: $currHash" -Colour Cyan
+# Only update state if copy was successful
+if ($copySuccess) {
+    $currHash | Set-Content -Path $StateFile
+    Write-Console "Updated state file with new hash" -Colour Gray
+    Write-Log "STATE UPDATED - New hash saved: $currHash" -Colour Cyan
+} else {
+    Write-Console "[WARNING] State file NOT updated due to copy failure" -Colour Yellow
+    Write-Log "WARNING - State file not updated due to copy failure" -Colour Yellow
+}
+
 Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
