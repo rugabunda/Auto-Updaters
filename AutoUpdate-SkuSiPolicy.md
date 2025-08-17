@@ -8,7 +8,10 @@ Tested: Windows 11, PowerShell 5.1.
 - Target → <ESP>:\EFI\Microsoft\Boot\SkuSiPolicy.p7b (ESP auto-mounted, default Z:)
 - Logs only changes/errors → C:\Log\Update.log
 - Popup + coloured console when run interactively as admin on login. Popup when run as system/w system startup and or upon (any) user login.
-- Verifies copy, then suggests reboot
+- Verifies copy, initiates Microsoft official secure boot update process:
+  - reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Secureboot /v AvailableUpdates /t REG_DWORD /d 0x20 /f
+  - Start-ScheduledTask -TaskName "\Microsoft\Windows\PI\Secure-Boot-Update"
+- Then suggests reboot
 
 ## Configurable top-of-script variables
 
