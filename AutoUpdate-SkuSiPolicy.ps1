@@ -174,7 +174,7 @@ function Show-UpdateNotification {
     }
 }
 
-# --- TRUE when drive looks like Windows install ISO / USB ----------------
+# --- Find / Mount EFI, Exclude Windows Install Media ----------------
 function Find-Or-MountEfi {
     param([string[]]$Letters = $EfiLetters)
 
@@ -182,7 +182,7 @@ function Find-Or-MountEfi {
     $existing = gdr -PSProvider FileSystem -ErrorAction SilentlyContinue |
         Where-Object {
             $r = $_.Root
-            $hasEfi = Test-Path ($r + 'EFI')
+            $hasEfi = Test-Path ($r + 'EFI\Microsoft\Boot')
             $isIso  = (Test-Path ($r + 'setup.exe')) -or
                       (Test-Path ($r + 'sources\install.wim')) -or
                       (Test-Path ($r + 'sources\install.esd'))
@@ -196,10 +196,10 @@ function Find-Or-MountEfi {
     # 2) Not mounted: try to mount to the first free letter in $Letters
     foreach ($l in $Letters) {
         if (-not (Get-PSDrive -Name $l -ErrorAction SilentlyContinue)) {
-            try { mountvol "$($l):" /S | Out-Null } catch {}
+            mountvol "$($l):" /S *> $null   # quiet: stdout+stderr
 
             $root   = "$($l):\"
-            $hasEfi = Test-Path ($root + 'EFI')
+            $hasEfi = Test-Path ($root + 'EFI\Microsoft\Boot')
             $isIso  = (Test-Path ($root + 'setup.exe')) -or
                       (Test-Path ($root + 'sources\install.wim')) -or
                       (Test-Path ($root + 'sources\install.esd'))
@@ -208,12 +208,13 @@ function Find-Or-MountEfi {
                 return [pscustomobject]@{ Letter = $l; MountedByUs = $true }
             }
 
-            # Clean up if the mount didn't result in the ESP or was an ISO
-            try { mountvol "$($l):" /D | Out-Null } catch {}
+            # Clean up only if we actually created a drive mapping
+            if (Get-PSDrive -Name $l -ErrorAction SilentlyContinue) {
+                mountvol "$($l):" /D *> $null
+            }
         }
     }
-
-    $null
+    return $null
 }
 # -------------------------------------------------------------------------
 
