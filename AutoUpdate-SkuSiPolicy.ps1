@@ -21,7 +21,7 @@ $SystemFile = 'C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b'
 $StateFile  = 'C:\Log\SkuSiPolicy.last'     # will contain the last MD5 hash
 $LogFile    = 'C:\Log\Update.log'
 # Drive letters to try when mounting the EFI System Partition (ESP) if not already mounted
-$EfiLetters = @('S','T','U','V','W','X','Y','Z')
+$EfiLetters = @('S','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
 # -------------------------------------------------------------------------
 
 # ---------- helpers -------------------------------------------------------
