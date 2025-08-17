@@ -27,6 +27,16 @@ $EfiLetters = @('S','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R',
 # ---------- helpers -------------------------------------------------------
 $IsInteractive = [Environment]::UserInteractive
 
+function Write-SessionStatus {
+    if (Test-IsSystemAccount) {
+        Write-Console "Running as SYSTEM account" -Colour Gray
+        Write-Log "Running as SYSTEM account" -Colour Gray
+    }
+    if (-not $IsInteractive) {
+        Write-Log "Running in non-interactive mode" -Colour Gray
+    }
+}
+
 function Write-Log {
     param(
         [string]       $Text,
@@ -127,7 +137,7 @@ function New-InteractiveNotificationTask {
 
 function Show-UpdateNotification {
     param(
-        [string]$Message = "SkuSiPolicy.p7b has been updated and mirrored to the EFI partition.`n`nA system restart is recommended for changes to take effect."
+        [string]$Message = "SkuSiPolicy.p7b has been updated and mirrored to the EFI partition."
     )
     
     $isSystem = Test-IsSystemAccount
@@ -160,7 +170,7 @@ function Show-UpdateNotification {
         }
     } else {
         # Non-interactive session (like S4U task)
-        Write-Log "NOTIFICATION (non-interactive session): $Message" -Colour Yellow
+        Write-Log "$Message" -Colour Yellow
     }
 }
 
@@ -201,17 +211,6 @@ Write-Console "=== SkuSiPolicy Updater Started ===" -Colour Magenta
 # Make sure the log folder exists as early as possible
 $null = New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force -ErrorAction SilentlyContinue
 
-# Log if running as SYSTEM
-if (Test-IsSystemAccount) {
-    Write-Console "Running as SYSTEM account" -Colour Gray
-    Write-Log "Running as SYSTEM account" -Colour Gray
-}
-
-# Log if non-interactive
-if (-not $IsInteractive) {
-    Write-Log "Running in non-interactive mode" -Colour Gray
-}
-
 # ---------------------------------------------------- validate source -----
 if (-not (Test-Path -Path $SystemFile)) {
     Write-Log "ERROR - source file '${SystemFile}' not found." -Colour Red
@@ -222,82 +221,7 @@ $currHash = Get-MD5 $SystemFile
 Write-Console "Source file: $SystemFile" -Colour Cyan
 Write-Hash "Source MD5" $currHash
 
-$needCopy = $true
-
-# ------------------------------------ first run (no .last) ----------------
-if (-not (Test-Path -Path $StateFile)) {
-
-    Write-Log "FIRST RUN - No state file found, checking EFI partition" -Colour Yellow
-
-    $esp = Find-Or-MountEfi
-    if (-not $esp) {
-        Write-Console "[ERROR] Could not locate or mount the EFI System Partition" -Colour Red
-        Write-Log "ERROR - Could not locate or mount the EFI System Partition" -Colour Red
-        exit 2
-    }
-
-    $EfiLetter = $esp.Letter
-    $EfiFile   = "${EfiLetter}:\EFI\Microsoft\Boot\SkuSiPolicy.p7b"
-
-    if ($esp.MountedByUs) {
-        Write-Log "Mounted EFI System Partition at ${EfiLetter}:" -Colour Gray
-    } else {
-        Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
-    }
-
-    if (Test-Path -Path $EfiFile) {
-        $efiHash = Get-MD5 $EfiFile
-        Write-Console "Existing EFI file found: $EfiFile" -Colour Cyan
-        Write-Hash "EFI file MD5" $efiHash
-
-        if ($efiHash -eq $currHash) {
-            Write-Console "[OK] Source and EFI files are identical - no copy needed" -Colour Green
-            $currHash | Set-Content -Path $StateFile
-            Write-Console "Saved current hash to state file" -Colour Gray
-            $needCopy = $false
-        } else {
-            Write-Console "[!] Files differ - copy will be performed" -Colour Yellow
-            Write-Log "FIRST RUN - Files differ, copy required" -Colour Yellow
-        }
-    } else {
-        Write-Console "FIRST RUN DETECTED - EFI file missing, will create: $EfiFile" -Colour Yellow
-        Write-Log "FIRST RUN - EFI file missing, will create: $EfiFile" -Colour Yellow
-    }
-
-    if ($esp.MountedByUs) { 
-        Write-Log "Unmounting EFI System Partition" -Colour Gray
-        mountvol "${EfiLetter}:" /D | Out-Null 
-    }
-}
-
-# Nothing left to do?  Exit silently
-if (-not $needCopy) { 
-    Write-Console "[OK] No action required - exiting" -Colour Green
-    Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
-    return 
-}
-
-# --------------------------------------- normal run -----------------------
-if (Test-Path -Path $StateFile) {
-    $prevHash = (Get-Content -Path $StateFile).Trim()
-    Write-Console "Previous hash from state file:" -Colour Cyan
-    Write-Console "  $prevHash" -Colour DarkYellow
-    Write-Hash "Current hash " $currHash
-    
-    if ($prevHash -eq $currHash) {
-        Write-Console "[OK] No changes detected - files are identical" -Colour Green
-        Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
-        return
-    } else {
-        Write-Console "[CHANGE] CHANGE DETECTED - Source file has been updated!" -Colour Red
-        Write-Log "CHANGE DETECTED - Hash changed from $prevHash to $currHash" -Colour Yellow
-    }
-}
-
-# ------------------------------------ perform copy ------------------------
-Write-Console "Preparing to copy updated file to EFI partition..." -Colour Yellow
-Write-Log "COPY OPERATION - Starting file copy to EFI partition" -Colour Cyan
-
+# Mount or find EFI partition
 $esp = Find-Or-MountEfi
 if (-not $esp) {
     Write-Console "[ERROR] Could not locate or mount the EFI System Partition" -Colour Red
@@ -314,90 +238,124 @@ if ($esp.MountedByUs) {
     Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
 }
 
-$copySuccess = $false
+$needCopy = $false
 
-try {
-    if ($IsInteractive) {
-        Write-Host "Copying: " -ForegroundColor Cyan -NoNewline
-        Write-Host "$SystemFile" -ForegroundColor White -NoNewline
-        Write-Host " -> " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$EfiFile" -ForegroundColor White
+if (-not (Test-Path -Path $EfiFile)) {
+    Write-Console "EFI file missing - copy required: $EfiFile" -Colour Yellow
+    Write-Log "EFI file missing - will create: $EfiFile" -Colour Yellow
+    Write-SessionStatus
+    $needCopy = $true
+} else {
+    $efiHash = Get-MD5 $EfiFile
+    Write-Console "Checking EFI file: $EfiFile" -Colour Cyan
+    Write-Hash "EFI file MD5" $efiHash
+
+    if ($efiHash -ne $currHash) {
+        Write-Console "[CHANGE] Files differ - copy required" -Colour Yellow
+        Write-Log "CHANGE DETECTED - Files differ, copy required" -Colour Yellow
+        Write-SessionStatus
+        $needCopy = $true
+    } else {
+        Write-Console "[OK] Source and EFI files are identical" -Colour Green
+        if ($esp.MountedByUs) { 
+            mountvol "${EfiLetter}:" /D | Out-Null 
+        }
+        Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
+        exit 0
     }
-    
-    # Ensure target directory exists
-    $targetDir = Split-Path -Path $EfiFile -Parent
-    if (-not (Test-Path $targetDir)) {
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-    }
+}
 
-    Copy-Item -Path $SystemFile -Destination $EfiFile -Force
-    Write-Console "[SUCCESS] File successfully copied to EFI partition!" -Colour Green
-    Write-Log "SUCCESS - File copied: $SystemFile -> $EfiFile" -Colour Green
-
-    # Verify the copy
-    $newEfiHash = Get-MD5 $EfiFile
-    Write-Hash "Verification - EFI file MD5" $newEfiHash -LogThis
+# Perform copy if needed
+if ($needCopy) {
     
-    if ($newEfiHash -eq $currHash) {
-        Write-Console "[VERIFIED] Copy successful, hashes match" -Colour Green
-        Write-Log "VERIFIED - Copy successful, hash verification passed" -Colour Green
-        $copySuccess = $true
+    Write-Console "Copying updated file to EFI partition..." -Colour Yellow
+    Write-Log "Copying updated file to EFI partition..." -Colour Cyan
+
+    $copySuccess = $false
+
+    try {
+        if ($IsInteractive) {
+            Write-Host "Copying: " -ForegroundColor Cyan -NoNewline
+            Write-Host "$SystemFile" -ForegroundColor White -NoNewline
+            Write-Host " -> " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$EfiFile" -ForegroundColor White
+        }
         
-        # Set registry to provision the update on reboot
-        try {
-            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot" -Name "AvailableUpdates" -Value 0x20
-            Write-Console "[REGISTRY] Set AvailableUpdates flag for provisioning on reboot" -Colour Green
-            Write-Log "REGISTRY - Set AvailableUpdates=0x20 for provisioning on reboot" -Colour Green
+        # Ensure target directory exists
+        $targetDir = Split-Path -Path $EfiFile -Parent
+        if (-not (Test-Path $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        }
+
+        Copy-Item -Path $SystemFile -Destination $EfiFile -Force
+        Write-Console "[SUCCESS] File successfully copied to EFI partition!" -Colour Green
+        Write-Log "File copied: $SystemFile -> $EfiFile" -Colour Green
+
+        # Verify the copy
+        $newEfiHash = Get-MD5 $EfiFile
+        Write-Hash "Verification - EFI file MD5" $newEfiHash -LogThis
+        
+        if ($newEfiHash -eq $currHash) {
+            Write-Console "[VERIFIED] Copy successful, hashes match" -Colour Green
+            Write-Log "Copy successful, hash verification passed" -Colour Green
+            $copySuccess = $true
             
-            # Run Secure Boot Update task to register and apply the update
+            # Set registry to provision the update on reboot
             try {
-                Start-ScheduledTask -TaskName "\Microsoft\Windows\PI\Secure-Boot-Update"
-                Write-Console "[TASK] Started Secure-Boot-Update task to register updates" -Colour Green
-                Write-Log "TASK - Started \Microsoft\Windows\PI\Secure-Boot-Update to register Secure Boot updates" -Colour Green
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot" -Name "AvailableUpdates" -Value 0x20
+                Write-Console "[REGISTRY] Set AvailableUpdates flag for provisioning on reboot" -Colour Green
+                Write-Log "Registry: Set AvailableUpdates=0x20 for provisioning on reboot" -Colour Green
+                
+                # Run Secure Boot Update task to register and apply the update
+                try {
+                    Start-ScheduledTask -TaskName "\Microsoft\Windows\PI\Secure-Boot-Update"
+                    Write-Console "[TASK] Started Secure-Boot-Update task to register updates" -Colour Green
+                    Write-Log "Task Started: \Microsoft\Windows\PI\Secure-Boot-Update to register Secure Boot updates" -Colour Green
+                }
+                catch {
+                    Write-Console "[WARNING] Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
+                    Write-Log "WARNING - Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
+                }
             }
             catch {
-                Write-Console "[WARNING] Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
-                Write-Log "WARNING - Could not start Secure-Boot-Update task: $($_.Exception.Message)" -Colour Yellow
+                Write-Console "[WARNING] Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
+                Write-Log "WARNING - Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
             }
+            
+            # Suggest reboot
+            Write-Console "" # blank line
+            Write-Console "[REBOOT RECOMMENDED] Please restart your computer for changes to take effect" -Colour Yellow
+            Write-Log "REBOOT RECOMMENDED - Changes require restart to take effect" -Colour Yellow
+            
+            # Show notification (handles SYSTEM, interactive, and non-interactive contexts)
+            Show-UpdateNotification
+            
+        } else {
+            Write-Console "[WARNING] Hash mismatch after copy!" -Colour Red
+            Write-Log "WARNING - Hash mismatch after copy! Expected: $currHash, Got: $newEfiHash" -Colour Red
         }
-        catch {
-            Write-Console "[WARNING] Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
-            Write-Log "WARNING - Could not set registry flag: $($_.Exception.Message)" -Colour Yellow
+    }
+    catch {
+        Write-Console "[ERROR] Copy operation failed: $($_.Exception.Message)" -Colour Red
+        Write-Log "ERROR - Copy operation failed: $($_.Exception.Message)" -Colour Red
+    }
+    finally {
+        if ($esp.MountedByUs) { 
+            Write-Log "Unmounting EFI System Partition" -Colour Gray
+            mountvol "${EfiLetter}:" /D | Out-Null 
         }
-        
-        # Suggest reboot
-        Write-Console "" # blank line
-        Write-Console "[REBOOT RECOMMENDED] Please restart your computer for changes to take effect" -Colour Yellow
-        Write-Log "REBOOT RECOMMENDED - Changes require restart to take effect" -Colour Yellow
-        
-        # Show notification (handles SYSTEM, interactive, and non-interactive contexts)
-        Show-UpdateNotification
-        
+    }
+
+    # ------------------------------------- save new state ---------------------
+    # Only update state if copy was successful
+    if ($copySuccess) {
+        $currHash | Set-Content -Path $StateFile
+        Write-Console "Updated state file with new hash" -Colour Gray
+        Write-Log "STATE UPDATED - New hash saved: $currHash" -Colour Cyan
     } else {
-        Write-Console "[WARNING] Hash mismatch after copy!" -Colour Red
-        Write-Log "WARNING - Hash mismatch after copy! Expected: $currHash, Got: $newEfiHash" -Colour Red
+        Write-Console "[WARNING] State file NOT updated due to copy failure" -Colour Yellow
+        Write-Log "WARNING - State file not updated due to copy failure" -Colour Yellow
     }
-}
-catch {
-    Write-Console "[ERROR] Copy operation failed: $($_.Exception.Message)" -Colour Red
-    Write-Log "ERROR - Copy operation failed: $($_.Exception.Message)" -Colour Red
-}
-finally {
-    if ($esp.MountedByUs) { 
-        Write-Log "Unmounting EFI System Partition" -Colour Gray
-        mountvol "${EfiLetter}:" /D | Out-Null 
-    }
-}
 
-# ------------------------------------- save new state ---------------------
-# Only update state if copy was successful
-if ($copySuccess) {
-    $currHash | Set-Content -Path $StateFile
-    Write-Console "Updated state file with new hash" -Colour Gray
-    Write-Log "STATE UPDATED - New hash saved: $currHash" -Colour Cyan
-} else {
-    Write-Console "[WARNING] State file NOT updated due to copy failure" -Colour Yellow
-    Write-Log "WARNING - State file not updated due to copy failure" -Colour Yellow
+    Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
 }
-
-Write-Console "=== SkuSiPolicy Updater Completed ===" -Colour Magenta
