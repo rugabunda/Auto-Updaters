@@ -174,35 +174,46 @@ function Show-UpdateNotification {
     }
 }
 
+# --- TRUE when drive looks like Windows install ISO / USB ----------------
 function Find-Or-MountEfi {
     param([string[]]$Letters = $EfiLetters)
 
-    # 1) Already mounted? Use it
-    $existing = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+    # 1) Already mounted? Use it (exclude Windows install media)
+    $existing = gdr -PSProvider FileSystem -ErrorAction SilentlyContinue |
         Where-Object {
-            try { Test-Path (Join-Path $_.Root 'EFI\Microsoft\Boot') } catch { $false }
-        } |
-        Select-Object -First 1
+            $r = $_.Root
+            $hasEfi = Test-Path ($r + 'EFI')
+            $isIso  = (Test-Path ($r + 'setup.exe')) -or
+                      (Test-Path ($r + 'sources\install.wim')) -or
+                      (Test-Path ($r + 'sources\install.esd'))
+            $hasEfi -and -not $isIso
+        } | Select-Object -First 1
 
     if ($existing) {
         return [pscustomobject]@{ Letter = $existing.Name; MountedByUs = $false }
     }
 
-    # 2) Not mounted: try to mount to the first free letter in S..Z
+    # 2) Not mounted: try to mount to the first free letter in $Letters
     foreach ($l in $Letters) {
         if (-not (Get-PSDrive -Name $l -ErrorAction SilentlyContinue)) {
             try { mountvol "$($l):" /S | Out-Null } catch {}
 
-            if (Test-Path "$($l):\EFI\Microsoft\Boot") {
+            $root   = "$($l):\"
+            $hasEfi = Test-Path ($root + 'EFI')
+            $isIso  = (Test-Path ($root + 'setup.exe')) -or
+                      (Test-Path ($root + 'sources\install.wim')) -or
+                      (Test-Path ($root + 'sources\install.esd'))
+
+            if ($hasEfi -and -not $isIso) {
                 return [pscustomobject]@{ Letter = $l; MountedByUs = $true }
             }
 
-            # Clean up if the mount didn't result in the ESP
+            # Clean up if the mount didn't result in the ESP or was an ISO
             try { mountvol "$($l):" /D | Out-Null } catch {}
         }
     }
 
-    return $null
+    $null
 }
 # -------------------------------------------------------------------------
 
