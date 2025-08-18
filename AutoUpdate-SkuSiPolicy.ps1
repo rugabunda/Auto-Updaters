@@ -245,9 +245,14 @@ $EfiLetter = $esp.Letter
 $EfiFile   = "${EfiLetter}:\EFI\Microsoft\Boot\SkuSiPolicy.p7b"
 
 if ($esp.MountedByUs) {
-    Write-Log "Mounted EFI System Partition at ${EfiLetter}:" -Colour Gray
+    # Log if new copy needed
+    if ($needCopy) {
+        Write-Log "Mounted EFI System Partition at ${EfiLetter}:" -Colour Gray
+    }
 } else {
-    Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
+    if ($needCopy) {
+        Write-Log "EFI System Partition already mounted at ${EfiLetter}:" -Colour Gray
+    }
 }
 
 $needCopy = $false
