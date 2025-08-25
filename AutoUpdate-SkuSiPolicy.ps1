@@ -1,13 +1,21 @@
 <#
   AutoUpdate-SkuSiPolicy.ps1
-  -----------------------
-  • Mirrors C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
-  to EFI\Microsoft\Boot\SkuSiPolicy.p7b – if none found or on hash change.
-  • Interactive mode is determined by schtask settings.
-  • Interactive MessageBox appears every time SkuSiPolicy.p7b is updated (when interactive).
-  • If running as SYSTEM, creates a self-deleting scheduled task for interactive notification.
-  • If running in non-interactive mode, logs the update and does not show a dialog.    
-  Tested on Windows 11 / PowerShell 5.1
+  ==========================
+  
+  Automatically synchronizes Windows Secure Boot policy files to ensure system integrity.
+  
+  This script monitors and maintains consistency between the Windows system's Secure Boot
+  policy (SkuSiPolicy.p7b) and its EFI partition counterpart, ensuring your device's
+  security configuration remains current across system updates.
+  
+  Key Features:
+  • Detects and mirrors policy changes from System32 to the EFI boot partition
+  • Smart notification system adapts to execution context (interactive/non-interactive)
+  • Handles SYSTEM account execution with user-visible notifications via scheduled tasks
+  • Maintains update history through comprehensive logging
+  • Validates file integrity using MD5 hash comparison
+  
+  Tested on Windows 11 with PowerShell 5.1
 #>
 
 # Needed for [System.Windows.Forms.MessageBox]
