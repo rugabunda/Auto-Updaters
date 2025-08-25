@@ -1,8 +1,8 @@
 # ============================
 # CONFIGURATION SECTION
 # ============================
-$DestinationFolder = "F:\ubo\uBlock0_1.65.1b8.chromium\uBlock0.chromium"  # Change this to your desired folder
-$UseFirewallRules = $true                    # Set to $false to disable firewall rule management
+$DestinationFolder = "C:\path\to\ubo"        # Change this to your desired folder
+$UseFirewallRules = $false                   # Set to $false to disable firewall rule management
 $UsePreRelease = $true                       # Set to $true for pre-release/beta versions, $false for stable
 
 # Registry settings
