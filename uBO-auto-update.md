@@ -1,6 +1,6 @@
 ## uBlock Origin Classic Auto-Updater for Chrome
 
-**Automatically download, install, and keep uBlock Origin Classic updated on Chromium-based browsers.** This PowerShell script enables you to continue using the classic version of uBlock Origin by sideloading it as an unpacked extension.
+**Automatically download, install, and keep uBlock Origin Classic updated on Chromium-based browsers.** Bypass Googles war on evolution and innovation,  re-secure your browser again by using the classic version of uBlock Origin via automatically updating the sideloaded extension.
 
 ### Quick Start
 1. Run the script to download uBO to your chosen folder
