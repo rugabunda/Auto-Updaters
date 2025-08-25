@@ -1,15 +1,12 @@
 <#
   AutoUpdate-SkuSiPolicy.ps1
   -----------------------
-  Mirrors C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
-  to     EFI\Microsoft\Boot\SkuSiPolicy.p7b
-  – if none found or on file change.
-
-  • A MessageBox appears every time SkuSiPolicy.p7b is updated (when interactive).
+  • Mirrors C:\Windows\System32\SecureBootUpdates\SkuSiPolicy.p7b
+  to EFI\Microsoft\Boot\SkuSiPolicy.p7b – if none found or on hash change.
+  • Interactive mode is determined by schtask settings.
+  • Interactive MessageBox appears every time SkuSiPolicy.p7b is updated (when interactive).
   • If running as SYSTEM, creates a self-deleting scheduled task for interactive notification.
-  • Console output is colourful when run interactively; minimal logging when quiet.
-  • Only logs significant events (changes, copies, errors) to reduce log verbosity.
-
+  • If running in non-interactive mode, logs the update and does not show a dialog.    
   Tested on Windows 11 / PowerShell 5.1
 #>
 
