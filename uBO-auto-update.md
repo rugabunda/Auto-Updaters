@@ -1,6 +1,8 @@
 ## uBlock Origin Classic Auto-Updater for Chrome
 
-**Automatically download, install, and keep uBlock Origin Classic updated on Chromium-based browsers.** Bypass Googles war on evolution and innovation,  re-secure your browser again by using the classic version of uBlock Origin via automatically updating the sideloaded extension.
+Automatically update the classic sideloaded extension. Bypass Googles war on security, evolution and innovation. Re-secure your browsing experience once again by using the classic version of uBlock Origin.
+
+**Automatically download, install, and keep uBlock Origin Classic updated on Chromium-based browsers.** 
 
 ### Quick Start
 1. Run the script to download uBO to your chosen folder
@@ -8,7 +10,7 @@
 3. Load the unpacked extension from the download folder
 4. Set up a scheduled task to keep uBO automatically updated
 
-Perfect for users who prefer the classic uBlock Origin experience or need features not available in uBlock Origin Lite.
+Perfect for users who prefer a secure browsing experience or need innovations that google destroys.
 
 ---
 
