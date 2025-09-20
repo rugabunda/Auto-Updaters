@@ -1,9 +1,11 @@
-# DDU Auto-Update Script
+# DDU Auto-Update Script (no firewall rule toggling)
+# Uses the central releases page -> content page -> forum fallback
+# Pairs each download link with the nearest SHA-256 on the page to avoid hash mismatches.
 
 #Requires -RunAsAdministrator
 [CmdletBinding()]
 param(
-    [string]$DDUForumListURL = "https://www.wagnardsoft.com/forums/viewforum.php?f=5",  # Forum listing page
+    [string]$DDUIndexURL = "https://www.wagnardsoft.com/display-driver-uninstaller-ddu",
     [string]$RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Display Driver Uninstaller",
     [string]$DDUExecutablePath = "C:\Program Files (x86)\Display Driver Uninstaller\Display Driver Uninstaller.exe"
 )
@@ -30,108 +32,219 @@ function Invoke-WebRequestCompat {
     }
 }
 
-function Get-LatestDDUThreadURL {
-    param([Parameter(Mandatory)][string]$ForumListURL)
-    
+function Resolve-Url {
+    param([Parameter(Mandatory)][string]$BaseUrl, [Parameter(Mandatory)][string]$Href)
     try {
-        Write-Host "Fetching forum listing to find latest DDU thread..." -ForegroundColor Cyan
-        $resp = Invoke-WebRequestCompat -Uri $ForumListURL
+        if ($Href -match '^https?://') { return $Href }
+        $base = [Uri]$BaseUrl
+        $u = New-Object System.Uri($base, $Href)
+        return $u.AbsoluteUri
+    } catch { return $Href }
+}
+
+function Get-VersionSortKey {
+    param([string]$Version)
+    try { return [Version]$Version } catch { return $null }
+}
+
+function Get-LatestDDUContentURL {
+    param([Parameter(Mandatory)][string]$IndexURL)
+    try {
+        Write-Host "Fetching DDU releases index page..." -ForegroundColor Cyan
+        $resp = Invoke-WebRequestCompat -Uri $IndexURL
         $html = $resp.Content
-        
-        # Look for the first DDU release thread link
-        # Pattern matches links like: ./viewtopic.php?t=5370&sid=xxx or just ./viewtopic.php?t=5370
-        # The title should contain "DDU" or "Display Driver Uninstaller" and "Released"
-        $pattern = '<a[^>]+href="\.\/viewtopic\.php\?t=(\d+)[^"]*"[^>]+class="topictitle"[^>]*>([^<]*(?:DDU|Display Driver Uninstaller)[^<]*Released[^<]*)<\/a>'
-        
-        if ($html -match $pattern) {
-            $topicId = $Matches[1]
-            $topicTitle = $Matches[2]
-            
-            # Extract version from title if possible
+
+        # Find content links like /content/Download-Display-Driver-Uninstaller-DDU-18132
+        $pattern = '(?is)<a[^>]+href\s*=\s*(["''])(?<href>\/content\/Download-Display-Driver-Uninstaller-DDU-[^"'']+)\1[^>]*>(?<text>.*?)<\/a>'
+        $matches = [System.Text.RegularExpressions.Regex]::Matches($html, $pattern)
+
+        if ($matches.Count -eq 0) { throw "No release content links found on the index page." }
+
+        $candidates = foreach ($m in $matches) {
+            $href = $m.Groups['href'].Value
+            $textRaw = $m.Groups['text'].Value
+            $text = [regex]::Replace($textRaw, '(?is)<.*?>', '').Trim()
+
+            if ($text -notmatch '(?i)Download\s+Display\s+Driver\s+Uninstaller') { continue }
+
             $version = 'Unknown'
-            if ($topicTitle -match 'V?([\d\.]+)') {
-                $version = $Matches[1]
-            }
-            
-            $threadURL = "https://www.wagnardsoft.com/forums/viewtopic.php?t=$topicId"
-            
-            Write-Host "Found latest DDU thread: $topicTitle" -ForegroundColor Green
-            Write-Host "Thread URL: $threadURL" -ForegroundColor Gray
-            
-            return $threadURL
-        } else {
-            # Try a more generic pattern
-            $pattern = 'href="\.\/viewtopic\.php\?t=(\d+)[^"]*"[^>]*>.*?(?:DDU|Display Driver Uninstaller).*?<'
-            if ($html -match $pattern) {
-                $topicId = $Matches[1]
-                $threadURL = "https://www.wagnardsoft.com/forums/viewtopic.php?t=$topicId"
-                
-                Write-Host "Found DDU thread: $threadURL" -ForegroundColor Yellow
-                return $threadURL
+            $mv = [regex]::Match($text, '(?i)([0-9]+(?:\.[0-9]+)+)')
+            if ($mv.Success) { $version = $mv.Groups[1].Value }
+
+            [PSCustomObject]@{
+                Url         = Resolve-Url -BaseUrl $IndexURL -Href $href
+                Title       = $text
+                Version     = $version
+                VersionKey  = Get-VersionSortKey -Version $version
             }
         }
-        
-        throw "Could not find DDU release thread in forum listing"
-    }
-    catch {
-        Write-Error "Failed to get latest DDU thread URL: $_"
+
+        if (-not $candidates -or $candidates.Count -eq 0) {
+            throw "Could not extract any valid DDU content links with versions."
+        }
+
+        $latest = $candidates | Sort-Object -Property @{Expression='VersionKey';Descending=$true}, @{Expression='Title';Descending=$true} | Select-Object -First 1
+
+        Write-Host "Latest content page: $($latest.Title)" -ForegroundColor Green
+        Write-Host "Content URL: $($latest.Url)" -ForegroundColor Gray
+        return $latest
+    } catch {
+        Write-Error "Failed to get latest DDU content URL: $_"
         return $null
     }
 }
 
-function Parse-DDUReleasesFromHtml {
-    param([Parameter(Mandatory)][string]$Html)
+function Parse-PageForDownloads {
+    param(
+        [Parameter(Mandatory)][string]$Html,
+        [Parameter(Mandatory)][string]$BaseUrl
+    )
 
-    # Match a block: SHA-1 ... SHA-256 ... then the very next <a href="...DDU...exe">
-    # We then classify the URL as Portable (no _setup) vs Installer (_setup.exe)
-    $pattern = '(?is)SHA-1\s*([A-F0-9]{40}).*?SHA-256\s*([A-F0-9]{64}).*?<a[^>]+href="(https://www\.wagnardsoft\.com/DDU/download/DDU[^"]+?\.exe)"'
-    $matches = [System.Text.RegularExpressions.Regex]::Matches($Html, $pattern)
+    # Collect all EXE links that look like DDU
+    $linkPattern = '(?is)<a[^>]+href\s*=\s*(["''])(?<url>[^"'']*DDU[^"'']+?\.exe)\1[^>]*>(?<text>.*?)<\/a>'
+    $linkMatches = [System.Text.RegularExpressions.Regex]::Matches($Html, $linkPattern)
 
-    $results = foreach ($m in $matches) {
-        $sha1   = $m.Groups[1].Value.ToUpperInvariant()
-        $sha256 = $m.Groups[2].Value.ToUpperInvariant()
-        $url    = $m.Groups[3].Value
+    # Collect all SHA hashes with their indices
+    $sha256Pattern = '(?is)\bSHA(?:\s*-\s*)?256\b[^A-Fa-f0-9]{0,40}([A-Fa-f0-9]{64})'
+    $sha1Pattern   = '(?is)\bSHA(?:\s*-\s*)?1\b[^A-Fa-f0-9]{0,40}([A-Fa-f0-9]{40})'
+    $sha256All = [System.Text.RegularExpressions.Regex]::Matches($Html, $sha256Pattern)
+    $sha1All   = [System.Text.RegularExpressions.Regex]::Matches($Html, $sha1Pattern)
 
-        # Determine type by filename
-        $type = if ($url -match '_setup\.exe$') { 'Installer' } else { 'Portable' }
+    # Max allowed distance (in characters) to consider a hash "belonging" to a link
+    $maxDist = 8000
 
-        # Extract version from file name (handles %20 or space)
-        # Use the Uri object's AbsolutePath to avoid pipeline/parenthesis issues
+    $list = foreach ($lm in $linkMatches) {
+        $anchorIndex = $lm.Index
+        $raw = $lm.Groups['url'].Value
+        $textRaw = $lm.Groups['text'].Value
+        $text = [regex]::Replace($textRaw, '(?is)<.*?>', '').Trim()
+
+        $url = Resolve-Url -BaseUrl $BaseUrl -Href $raw
+        if ($url -notmatch '(?i)DDU') { continue }
+
         $fileName = [System.IO.Path]::GetFileName(([Uri]$url).AbsolutePath)
         $fileName = [uri]::UnescapeDataString($fileName)
+        $lowerName = $fileName.ToLowerInvariant()
+        $lowerText = $text.ToLowerInvariant()
+
+        # Prefer installer (setup/installer) over self-extracting/portable
+        $isInstaller = ($lowerName -match '(?:^|[-_.\s])(setup|installer)(?:[-_.\s]|$)') -or ($lowerText -match 'setup|installer') -or ($lowerName -match '_setup\.exe$')
+        $type = if ($isInstaller) { 'Installer' } else { 'Portable' }
+
+        # Extract version
         $version = 'Unknown'
-        if ($fileName -match 'DDU(?: |%20)?v([\d\.]+)') { $version = $Matches[1] }
+        $mv = [regex]::Match($fileName, '(?i)DDU(?:\s|%20)?v?([0-9]+(?:\.[0-9]+)+)')
+        if ($mv.Success) {
+            $version = $mv.Groups[1].Value
+        } else {
+            $mv = [regex]::Match($text, '(?i)v?([0-9]+(?:\.[0-9]+)+)')
+            if ($mv.Success) { $version = $mv.Groups[1].Value }
+        }
+
+        # Pair nearest SHA-256 (and SHA-1) to this link
+        $nearest256 = $null; $dist256 = $null
+        if ($sha256All.Count -gt 0) {
+            $nearest256 = ($sha256All | Sort-Object @{ Expression = { [math]::Abs($_.Index - $anchorIndex) } }) | Select-Object -First 1
+            $dist256 = [math]::Abs($nearest256.Index - $anchorIndex)
+            if ($dist256 -gt $maxDist) { $nearest256 = $null }
+        }
+        $nearest1 = $null; $dist1 = $null
+        if ($sha1All.Count -gt 0) {
+            $nearest1 = ($sha1All | Sort-Object @{ Expression = { [math]::Abs($_.Index - $anchorIndex) } }) | Select-Object -First 1
+            $dist1 = [math]::Abs($nearest1.Index - $anchorIndex)
+            if ($dist1 -gt $maxDist) { $nearest1 = $null }
+        }
+
+        $sha256 = if ($nearest256) { $nearest256.Groups[1].Value.ToUpperInvariant() } else { $null }
+        $sha1   = if ($nearest1)   { $nearest1.Groups[1].Value.ToUpperInvariant() } else { $null }
+
+        # Optional tiny debug hint
+        if ($sha256) {
+            Write-Host "Paired SHA256 for $fileName (distance: $dist256)" -ForegroundColor DarkGray
+        } else {
+            Write-Host "No nearby SHA256 found for $fileName" -ForegroundColor DarkYellow
+        }
+
+        $urlHost = try { ([Uri]$url).Host.ToLowerInvariant() } catch { '' }
+        $isWagnard = $urlHost -match 'wagnardsoft\.com'
 
         [PSCustomObject]@{
-            Type     = $type
-            Url      = $url
-            FileName = $fileName
-            SHA1     = $sha1
-            SHA256   = $sha256
-            Version  = $version
+            Type       = $type
+            Url        = $url
+            FileName   = $fileName
+            SHA1       = $sha1
+            SHA256     = $sha256
+            Version    = $version
+            VersionKey = Get-VersionSortKey -Version $version
+            HostScore  = if ($isWagnard) { 1 } else { 0 }
+            Distance   = $dist256
         }
     }
 
-    return $results
+    if ($list.Count -gt 1) {
+        $list = $list | Group-Object FileName | ForEach-Object { $_.Group | Select-Object -First 1 }
+    }
+
+    return $list
+}
+
+function Get-ForumThreadURLFromContentPage {
+    param([Parameter(Mandatory)][string]$Html, [Parameter(Mandatory)][string]$BaseUrl)
+    $m = [regex]::Match($Html, '(?is)href\s*=\s*(["''])(?<href>(?:https?:\/\/(?:www\.)?wagnardsoft\.com)?\/forums\/viewtopic\.php\?t=\d+)\1')
+    if ($m.Success) {
+        return Resolve-Url -BaseUrl $BaseUrl -Href $m.Groups['href'].Value
+    }
+    return $null
 }
 
 function Get-DDULatestInfo {
-    param([Parameter(Mandatory)][string]$ForumURL)
+    param([Parameter(Mandatory)][string]$IndexURL)
+
     try {
-        Write-Host "Fetching DDU version information from thread..." -ForegroundColor Cyan
-        $resp = Invoke-WebRequestCompat -Uri $ForumURL
-        $html = $resp.Content
+        $contentInfo = Get-LatestDDUContentURL -IndexURL $IndexURL
+        if (-not $contentInfo) { throw "Could not determine latest DDU content page." }
 
-        $blocks = Parse-DDUReleasesFromHtml -Html $html
-        if (-not $blocks -or $blocks.Count -eq 0) { throw "No release blocks found." }
+        Write-Host "Fetching latest content page..." -ForegroundColor Cyan
+        $contentResp = Invoke-WebRequestCompat -Uri $contentInfo.Url
+        $contentHtml = $contentResp.Content
 
-        $installer = $blocks | Where-Object { $_.Type -eq 'Installer' } | Select-Object -First 1
-        if (-not $installer) { throw "Could not find Installer block on the page." }
+        $downloads = Parse-PageForDownloads -Html $contentHtml -BaseUrl $contentInfo.Url
 
-        return $installer
+        # If no direct downloads on content page, try the linked forum thread
+        if (-not $downloads -or $downloads.Count -eq 0) {
+            $threadUrl = Get-ForumThreadURLFromContentPage -Html $contentHtml -BaseUrl $contentInfo.Url
+            if ($threadUrl) {
+                Write-Host "No direct downloads on the content page. Following forum thread: $threadUrl" -ForegroundColor Yellow
+                $threadResp = Invoke-WebRequestCompat -Uri $threadUrl
+                $threadHtml = $threadResp.Content
+                $downloads = Parse-PageForDownloads -Html $threadHtml -BaseUrl $threadUrl
+            }
+        }
+
+        if (-not $downloads -or $downloads.Count -eq 0) {
+            throw "No DDU downloads found on the content or forum page."
+        }
+
+        # Prefer Installer on wagnardsoft host; then highest version; then closest hash distance
+        $preferred = $downloads |
+            Sort-Object `
+                @{Expression={ if ($_.Type -eq 'Installer') {1} else {0} }; Descending=$true}, `
+                @{Expression='HostScore'; Descending=$true}, `
+                @{Expression='VersionKey'; Descending=$true}, `
+                @{Expression={ if ($_.Distance) { -1 * [int]$_.Distance } else { -999999 } }; Descending=$true} |
+            Select-Object -First 1
+
+        if (-not $preferred) { $preferred = $downloads | Select-Object -First 1 }
+
+        if ($preferred.Version -eq 'Unknown' -and $contentInfo.Version -ne 'Unknown') {
+            $preferred.Version = $contentInfo.Version
+            $preferred.VersionKey = Get-VersionSortKey -Version $preferred.Version
+        }
+
+        return $preferred
     }
     catch {
-        Write-Error "Failed to parse forum page: $_"
+        Write-Error "Failed to retrieve latest DDU info: $_"
         return $null
     }
 }
@@ -188,16 +301,14 @@ function Save-HashToRegistry {
         $newlyCreated = -not (Test-Path $Path)
         if ($newlyCreated) { New-Item -Path $Path -Force | Out-Null }
 
-        # Save only what we own; keep it resilient if the real installer overwrites other values
         Set-RegValue -Path $Path -Name 'SHA256' -Value $Hash -Type 'String'
         Set-RegValue -Path $Path -Name 'DisplayVersion' -Value $Version -Type 'String'
         Set-RegValue -Path $Path -Name 'InstallDate' -Value (Get-Date -Format 'yyyyMMdd') -Type 'String'
 
-        # If we had to create the key (first install), hide it from Apps & Features
         if ($newlyCreated) {
             Set-RegValue -Path $Path -Name 'DisplayName' -Value 'Display Driver Uninstaller' -Type 'String'
             Set-RegValue -Path $Path -Name 'Publisher' -Value 'Wagnardsoft' -Type 'String'
-            Set-RegValue -Path $Path -Name 'SystemComponent' -Value 1 -Type 'DWord'   # Hide from ARP if we created it
+            Set-RegValue -Path $Path -Name 'SystemComponent' -Value 1 -Type 'DWord'
             Set-RegValue -Path $Path -Name 'NoModify' -Value 1 -Type 'DWord'
             Set-RegValue -Path $Path -Name 'NoRepair' -Value 1 -Type 'DWord'
         }
@@ -259,55 +370,44 @@ function Install-Silently {
 
 Write-Host ""
 Write-Host "=== DDU Auto-Update Script ===" -ForegroundColor Yellow
-Write-Host "Forum List URL: $DDUForumListURL`n" -ForegroundColor Gray
+Write-Host "Index URL: $DDUIndexURL`n" -ForegroundColor Gray
 
 try {
-    # Step 1: Find the latest DDU thread URL from the forum listing
-    $latestThreadURL = Get-LatestDDUThreadURL -ForumListURL $DDUForumListURL
-    if (-not $latestThreadURL) { throw "Could not determine latest DDU thread URL" }
-    
-    # Step 2: Check if DDU executable actually exists
+    # Step 1: Check if DDU executable actually exists
     $dduExists = Test-DDUExecutableExists -Path $DDUExecutablePath
-    
-    # Step 3: Get latest DDU info from the thread
-    $latest = Get-DDULatestInfo -ForumURL $latestThreadURL
+
+    # Step 2: Get latest DDU info from the releases index -> content page (-> forum if needed)
+    $latest = Get-DDULatestInfo -IndexURL $DDUIndexURL
     if (-not $latest) { throw "Could not retrieve latest DDU info." }
 
     Write-Host "Latest DDU Version: $($latest.Version)" -ForegroundColor Cyan
-    Write-Host "Latest SHA256 (Installer): $($latest.SHA256)" -ForegroundColor Gray
+    Write-Host "Selected file: $($latest.FileName) [$($latest.Type)]" -ForegroundColor Gray
+    $shaDisplay = if ($latest.SHA256) { $latest.SHA256 } else { 'N/A' }
+    Write-Host "SHA256 (from page): $shaDisplay" -ForegroundColor Gray
 
-    # Determine if we need to install or update
+    # Step 3: Decide if we need to install/update
     $needInstall = $false
-    $installReason = ""
-    
     if (-not $dduExists) {
-        # DDU executable doesn't exist - need to install regardless of registry
         $needInstall = $true
-        $installReason = "DDU executable not found - performing fresh installation"
-        Write-Host "`n$installReason" -ForegroundColor Yellow
+        Write-Host "`nDDU executable not found - performing fresh installation" -ForegroundColor Yellow
     } else {
-        # DDU executable exists - check if update is needed
         $storedHash = Get-StoredHash -Path $RegistryPath
         if ($storedHash) {
             Write-Host "`nStored SHA256: $storedHash" -ForegroundColor Gray
-            if ($storedHash -eq $latest.SHA256) {
+            if ($latest.SHA256 -and ($storedHash -eq $latest.SHA256)) {
                 Write-Host "`nDDU is already up to date!" -ForegroundColor Green
                 return
             } else {
                 $needInstall = $true
-                $installReason = "Update available! New installer detected."
-                Write-Host "`n$installReason" -ForegroundColor Yellow
+                Write-Host "`nUpdate available! New installer detected." -ForegroundColor Yellow
             }
         } else {
-            # Executable exists but no registry entry - could be portable version or corrupted registry
             $needInstall = $true
-            $installReason = "DDU found but no registry entry - performing installation to ensure proper setup"
-            Write-Host "`n$installReason" -ForegroundColor Yellow
+            Write-Host "`nDDU found but no registry entry - installing to ensure proper setup" -ForegroundColor Yellow
         }
     }
 
     if ($needInstall) {
-        # Build output path using actual file name
         $installerName = $latest.FileName
         $outputPath = Join-Path $env:TEMP $installerName
 
@@ -315,14 +415,26 @@ try {
             Write-Host "`nVerifying file integrity..." -ForegroundColor Cyan
             $downloadedHash = Get-FileHashSHA256 -FilePath $outputPath
 
-            if ($downloadedHash -eq $latest.SHA256) {
-                Write-Host "Hash verification successful!" -ForegroundColor Green
+            $proceedInstall = $false
+            if ($latest.SHA256) {
+                if ($downloadedHash -eq $latest.SHA256) {
+                    Write-Host "Hash verification successful!" -ForegroundColor Green
+                    $proceedInstall = $true
+                } else {
+                    Write-Error "Hash verification failed!"
+                    Write-Host "Expected: $($latest.SHA256)" -ForegroundColor Red
+                    Write-Host "Got:      $downloadedHash" -ForegroundColor Red
+                }
+            } else {
+                Write-Warning "No SHA256 found near the selected link; proceeding with caution."
+                $proceedInstall = $true
+            }
 
+            if ($proceedInstall) {
                 if (Install-Silently -InstallerPath $outputPath) {
-                    if (Save-HashToRegistry -Path $RegistryPath -Hash $latest.SHA256 -Version $latest.Version) {
+                    $hashToSave = if ($latest.SHA256) { $latest.SHA256 } else { $downloadedHash }
+                    if (Save-HashToRegistry -Path $RegistryPath -Hash $hashToSave -Version $latest.Version) {
                         Write-Host "`n=== DDU Installation/Update Complete ===" -ForegroundColor Green
-                        
-                        # Verify the executable now exists
                         if (Test-DDUExecutableExists -Path $DDUExecutablePath) {
                             Write-Host "Installation verified successfully!" -ForegroundColor Green
                         } else {
@@ -330,13 +442,8 @@ try {
                         }
                     }
                 }
-            } else {
-                Write-Error "Hash verification failed!"
-                Write-Host "Expected: $($latest.SHA256)" -ForegroundColor Red
-                Write-Host "Got:      $downloadedHash" -ForegroundColor Red
             }
 
-            # Cleanup
             if (Test-Path $outputPath) {
                 Remove-Item $outputPath -Force -ErrorAction SilentlyContinue
                 Write-Host "Temporary files cleaned up" -ForegroundColor Gray
