@@ -1,4 +1,4 @@
-# DDU Auto-Update Script (no firewall rule toggling)
+# DDU Auto-Update Script
 # Uses the central releases page -> content page -> forum fallback
 # Pairs each download link with the nearest SHA-256 on the page to avoid hash mismatches.
 
